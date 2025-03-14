@@ -1,0 +1,38 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.6.3",
+  "dependencies": {
+    "@huggingface/inference": "^3.5.2",
+    "async": "^3.2.6",
+    "axios": "^1.8.3",
+    "cors": "^2.8.5",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "isomorphic-ws": "^5.0.0",
+    "mongoose": "^8.12.1",
+    "semiver": "^1.1.0",
+    "snowyflake": "^2.0.1",
+    "tslib": "^2.8.1",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/async": "^3.2.24",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.10",
+    "@types/ws": "^8.18.0",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
