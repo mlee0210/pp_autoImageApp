@@ -179,9 +179,25 @@ export const stopProcess = async (req: Request, res: Response) => {
 
 export const fetchData = async (req: Request, res: Response) => {
   console.log('inside fetchData');
+  const page = parseInt(req.query.page as string) || 1; // Default to page 1
+  const limit = parseInt(req.query.limit as string) || 10; // Default to 10 items per page
   try {
-    const prompts = await MidjourneyData.find(); // Fetch all stored prompts
-    res.json(prompts);
+    const skips = (page - 1) * limit;
+    const prompts = await MidjourneyData.find()
+    .sort({ createdAt: -1 }) // Sort by createdAt (most recent first)
+    .skip(skips)
+    .limit(limit); // Fetch all stored prompts
+    console.log(page)
+    console.log(limit)
+    // Count the total number of documents
+    const total = await MidjourneyData.countDocuments();
+
+    res.json({
+      prompts,
+      total,
+      pages: Math.ceil(total / limit), // Calculate total pages
+      currentPage: page,
+    });
   } catch (error) {
     console.error('Error fetching prompts:', error);
     res.status(500).json({ message: 'Internal Server Error' });

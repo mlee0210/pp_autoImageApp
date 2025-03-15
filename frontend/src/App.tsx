@@ -11,6 +11,8 @@ const App: React.FC = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null); // WebSocket state
   const [isProcessing, setIsProcessing] = useState(false); // Track whether the process is running
   const [isIterationComplete, setIsIterationComplete] = useState(true); // Track if current iteration is complete
+  const [currentPage, setCurrentPage] = useState(1); // Track current page
+  const [totalPages, setTotalPages] = useState(1); // Track total pages
 
   const API_BASE_URL = "http://localhost:5001";
   const WS_URL = "ws://localhost:8080"; // WebSocket server URL
@@ -64,28 +66,51 @@ const App: React.FC = () => {
     }
   };
 
-  const updateGallery = async () => {
-    console.log("update button clicked");
+  // const updateGallery = async () => {
+  //   console.log("update button clicked");
+  //   try {
+  //     const response = await axios.get(`${API_BASE_URL}/api/prompts/allData`);
+  //     setPrompts(response.data); // Replace existing images with new ones
+  //   } catch (error) {
+  //     console.error("Error fetching prompts", error);
+  //   }
+  // };
+
+  // Fetch data for the current page
+  const fetchData = async (page: number) => {
+    setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/prompts/allData`);
-      setPrompts(response.data); // Replace existing images with new ones
+      const response = await axios.get(`${API_BASE_URL}/api/prompts/`, {
+        params: {
+          page,
+          limit: 10, // Fetch 10 items per page
+        },
+      });
+
+      setPrompts(response.data.prompts);
+      setTotalPages(response.data.pages); // Set the total pages based on the response
     } catch (error) {
-      console.error("Error fetching prompts", error);
+      console.error("Error fetching data", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Fetch data from the backend when the component renders
-    const fetchData = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/prompts/`);
-        setPrompts(response.data);
-      } catch (error) {
-        console.error("Error fetching data from /", error);
-      }
-    };
-    fetchData();
-  }, []);
+    fetchData(currentPage); // Fetch data for the current page
+  }, [currentPage]);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   return (
     <div className="app">
@@ -101,13 +126,33 @@ const App: React.FC = () => {
       />
       <Button 
         label="UPDATE" 
-        onClick={updateGallery} 
+        onClick={() => {
+          setCurrentPage(1); // Reset to the first page
+          fetchData(1); // Fetch data for the first page
+        }} 
         disabled={loading || isProcessing || !isIterationComplete} 
       />
 
       {notificationMessage && <p className="notification">{notificationMessage}</p>}
 
       <ImageGallery prompts={Array.isArray(prompts) ? prompts : []} />
+
+      <div className="pagination">
+        <Button
+          label="Previous"
+          onClick={handlePreviousPage}
+          disabled={currentPage === 1 || loading}
+        />
+        <span>
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          label="Next"
+          onClick={handleNextPage}
+          disabled={currentPage === totalPages || loading}
+        />
+      </div>
+
     </div>
   );
 };

@@ -208,3 +208,14 @@ button:disabled {
 .modal-nav-button:hover {
   color: #4CAF50;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.pagination button {
+  margin: 0 10px;
+}
