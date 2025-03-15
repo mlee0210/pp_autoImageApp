@@ -1,20 +1,43 @@
 // src/controllers/promptController.ts
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
-import { Prompt } from '../models/prompt';
+import { MidjourneyData } from '../models/midjourneyData';
+import RandomPrompt from '../models/randomPrompts';
 import express from 'express';
 import sendToMidjourney from './imagine-ws';
-// import { broadcastMessage } from '../server';  // Import the broadcast function
+import { broadcastMessage } from "../utils/websocket"; // Import WebSocket function
+import { random } from '../utils';
 
 const promptRoutes: Router = Router();
 
 // Example random prompts, you can fetch these from your database or another source
 export const getRandomPrompt = async () => {
-  console.log("Inside getRandomPrompt");
-  const arr = ["미래지향적인 도시", "검은 고양이", "빨간 머리 앤"];
-  const randomIndex = Math.floor(Math.random() * arr.length);
-  
-  return arr[randomIndex];
+  try {
+    // Get the total count of documents in the collection
+    const count = await RandomPrompt.countDocuments();
+
+    if (count === 0) {
+      console.log("No prompts in the database.");
+      return null; // Return null if no prompts exist
+    }
+
+    // Generate a random index
+    const randomIndex = Math.floor(Math.random() * count);
+
+    // Fetch the random prompt
+    const randomPrompt = await RandomPrompt.findOne().skip(randomIndex);
+
+    if (!randomPrompt) {
+      console.log("No prompt found.");
+      return null;
+    }
+
+    console.log("Random prompt fetched:", randomPrompt.prompt);
+    return randomPrompt.prompt; // Return the random prompt text
+  } catch (error) {
+    console.error("Error fetching random prompt:", error);
+    return null;
+  }
 };
 
 // Translate the random prompt into English using OpenAI
@@ -82,7 +105,7 @@ export const fineTunePrompt = async (prompt: string) => {
 // Save the original and final prompts into the MongoDB database
 export const savePromptToDB = async (originalPrompt: string, translatedPrompt: string, finalPrompt: string) => {
   try {
-    const newPrompt = new Prompt({
+    const newPrompt = new MidjourneyData({
       originalPrompt: originalPrompt,
       translatedPrompt: translatedPrompt,
       finalPrompt: finalPrompt,
@@ -96,42 +119,68 @@ export const savePromptToDB = async (originalPrompt: string, translatedPrompt: s
   }
 };
 
+let isProcessing = false;
+
 // The main process that orchestrates fetching the prompt, translating, fine-tuning, and saving it
-export const startProcess = async (req: Request, res: Response) => {
+export const startProcess = async () => {
   console.log("Inside startProcess")
-  try {
-    // Fetch a random prompt
-    const randomPrompt = await getRandomPrompt();
+  // If already processing, do nothing
+  if (isProcessing) {
+    broadcastMessage("Process is already running");
+  }
+  isProcessing = true; // Set processing flag to true
+  while (isProcessing) {
+    try {
+      console.log("Running process loop...");
 
-    // Translate the random prompt
-    const translatedPrompt = await translatePrompt(randomPrompt);
-
-    // Fine-tune the translated prompt to Midjourney format
-    const finalPrompt = await fineTunePrompt(translatedPrompt);
-
-    // Save the prompts to the database
-    const promptId = await savePromptToDB(randomPrompt, translatedPrompt, finalPrompt);
-    
-    //Send the final prompt to Midjourney 
-    const answer = await sendToMidjourney(finalPrompt, promptId as string);
-   
-    if(answer) {
-      // Respond with success
-      res.status(200).json({ message: 'Process started successfully!' });
+      // Fetch a random prompt
+      const randomPrompt = await getRandomPrompt();
+      
+      if (randomPrompt) {
+        // Translate the random prompt
+      const translatedPrompt = await translatePrompt(randomPrompt);
+  
+      // Fine-tune the translated prompt to Midjourney format
+      const finalPrompt = await fineTunePrompt(translatedPrompt);
+  
+      // Save the prompts to the database
+      const promptId = await savePromptToDB(randomPrompt, translatedPrompt, finalPrompt);
+      
+      //Send the final prompt to Midjourney 
+      const answer = await sendToMidjourney(finalPrompt, promptId as string);
+     
+      if(answer) {
+        // Respond with success
+        broadcastMessage("Iteration Complete");
+      }
+      // Once the process is complete, broadcast a message to all WebSocket clients
+      // broadcastMessage('Process completed successfully!');
+      console.log("Process iteration completed.");
+      }
+      
+    } catch (error) {
+        broadcastMessage("Error occurred during process!"); // Ensure this function exists
     }
-    // Once the process is complete, broadcast a message to all WebSocket clients
-    // broadcastMessage('Process completed successfully!');
-    
-    
-  } catch (error) {
-    res.status(500).json({ message: "error"});
   }
 };
+
+// Stop Process Function
+export const stopProcess = async (req: Request, res: Response) => {
+  console.log("Stop process requested"); // Add this to log when the endpoint is hit
+
+  if (!isProcessing) {
+    res.status(400).json({ message: "No process is running" });
+  }
+
+  isProcessing = false;
+  res.status(200).json({ message: "Process stopped" });
+};
+
 
 export const fetchData = async (req: Request, res: Response) => {
   console.log('inside fetchData');
   try {
-    const prompts = await Prompt.find(); // Fetch all stored prompts
+    const prompts = await MidjourneyData.find(); // Fetch all stored prompts
     res.json(prompts);
   } catch (error) {
     console.error('Error fetching prompts:', error);
@@ -143,6 +192,8 @@ export const fetchData = async (req: Request, res: Response) => {
 promptRoutes.get('/', fetchData);
 
 promptRoutes.post('/start', startProcess);
+
+promptRoutes.post('/stop', stopProcess);
 
 promptRoutes.get('/allData', fetchData);
 

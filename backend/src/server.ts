@@ -1,39 +1,10 @@
-// src/server.ts
-import express from 'express';
-import cors from "cors";
-import dotenv from 'dotenv';
-import connectDB from "./connectDB";
-import { promptRoutes } from './controllers/promptController';
-// import DiscordBot from './services/discordBot';
-
-dotenv.config();
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// Connect to MongoDB
-connectDB();
-
-// Start the Discord Bot
-// const discordBot = new DiscordBot(); // Initialize the bot to start it
-
-// Routes
-app.use('/api/prompts', promptRoutes);
-
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-
-
+// // src/server.ts
 // import express from 'express';
-// import cors from 'cors';
+// import cors from "cors";
 // import dotenv from 'dotenv';
-// import connectDB from './connectDB';
+// import connectDB from "./connectDB";
 // import { promptRoutes } from './controllers/promptController';
-// import WebSocket from 'ws';
+// // import DiscordBot from './services/discordBot';
 
 // dotenv.config();
 
@@ -44,42 +15,83 @@ app.listen(PORT, () => {
 // // Connect to MongoDB
 // connectDB();
 
-// // WebSocket server setup
-// const wss = new WebSocket.Server({ noServer: true });
-
-// // Broadcast a message to all connected WebSocket clients
-// function broadcastMessage(message: string) {
-//   wss.clients.forEach((client) => {
-//     if (client.readyState === WebSocket.OPEN) {
-//       client.send(message);
-//     }
-//   });
-// }
-
-// // Handling WebSocket connections
-// wss.on('connection', (ws) => {
-//   console.log('Client connected');
-//   ws.on('message', (message) => {
-//     console.log('Received message:', message);
-//   });
-//   ws.on('close', () => {
-//     console.log('Client disconnected');
-//   });
-// });
-
-// // Integrate WebSocket with the Express server
-// const server = app.listen(process.env.PORT || 5001, () => {
-//   console.log(`Server running on port ${process.env.PORT || 5001}`);
-// });
-
-// // WebSocket server handles upgrade requests from the HTTP server
-// server.on('upgrade', (request, socket, head) => {
-//   wss.handleUpgrade(request, socket, head, (ws) => {
-//     wss.emit('connection', ws, request);
-//   });
-// });
+// // Start the Discord Bot
+// // const discordBot = new DiscordBot(); // Initialize the bot to start it
 
 // // Routes
 // app.use('/api/prompts', promptRoutes);
 
+// const PORT = process.env.PORT || 5001;
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });
+
+
+
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import connectDB from './connectDB';
+import { promptRoutes } from './controllers/promptController';
+import { wss, broadcastMessage } from './utils/websocket';
+import { startProcess } from "./controllers/promptController";
+
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Connect to MongoDB
+connectDB();
+
+// WebSocket server setup
+
+let isRunning = false;
+
+// ✅ Function to continuously process prompts until stopped
+const startLoop = async () => {
+  isRunning = true;
+  while (isRunning) {
+    console.log("Running process...");
+    try {
+      await startProcess(); // Mock req, res objects for now
+    } catch (error) {
+      console.error("Error in process loop:", error);
+      broadcastMessage("Process encountered an error!");
+    }
+  }
+  broadcastMessage("Process Stopped!");
+};
+
+// ✅ Handle WebSocket connections
+wss.on("connection", (ws) => {
+  console.log("Client connected to WebSocket");
+
+  ws.on("message", (message) => {
+    const msg = message.toString().trim();
+
+    if (msg === "START") {
+      if (!isRunning) {
+        startLoop();
+        broadcastMessage("Process started!");
+      }
+    } else if (msg === "STOP") {
+      isRunning = false;
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("Client disconnected");
+  });
+});
+
+// Routes
+app.use('/api/prompts', promptRoutes);
+
 // export { broadcastMessage }; // Export for use in other parts of your app
+
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

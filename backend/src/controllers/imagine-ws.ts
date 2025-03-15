@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Midjourney } from "../";
 import connectDB from '../connectDB';
-import { Prompt } from '../models/prompt';
+import { MidjourneyData } from '../models/midjourneyData';
 
 
 // Function to send the prompt to Midjourney
@@ -48,7 +48,7 @@ async function sendToMidjourney(finalPrompt: string, promptId: string) {
           }
         }
         
-        const prompt = await Prompt.findById(promptId.toString());
+        const prompt = await MidjourneyData.findById(promptId.toString());
         if (!prompt) {
           console.error('Prompt not found');
         return;

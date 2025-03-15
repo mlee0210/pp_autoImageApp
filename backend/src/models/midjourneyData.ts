@@ -19,4 +19,4 @@ const PromptSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-export const Prompt = model<IPrompt>('Prompt', PromptSchema);
+export const MidjourneyData = model<IPrompt>('MidjourneyData', PromptSchema, 'midjourneydata');
