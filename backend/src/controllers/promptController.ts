@@ -41,8 +41,8 @@ export const getRandomPrompt = async () => {
 };
 
 // Translate the random prompt into English using OpenAI
-export const translatePrompt = async (prompt: string) => {
-  console.log("Inside translatePrompt");
+export const getGPTPrompt = async (prompt: string) => {
+  console.log("Inside getGPTPrompt");
   try {
     // Use the chat/completions endpoint for GPT-4 (or GPT-3.5)
     const response = await axios.post(
@@ -62,9 +62,9 @@ export const translatePrompt = async (prompt: string) => {
       }
     );
     // Extract the translated prompt from the response
-    const translatedPrompt = response.data.choices[0].message.content.trim();
+    const gptPrompt = response.data.choices[0].message.content.trim();
 
-    return translatedPrompt;
+    return gptPrompt;
   } catch (error) {
     console.error('Error in translating prompt:', error);
     throw new Error('Failed to translate prompt');
@@ -72,8 +72,8 @@ export const translatePrompt = async (prompt: string) => {
 };
 
 // Fine-tune the translated prompt to Midjourney format using OpenAI
-export const fineTunePrompt = async (prompt: string) => {
-  console.log("Inside fineTunePrompt");
+export const getMidjourneyPrompt = async (prompt: string) => {
+  console.log("Inside getMidjourneyPrompt");
   try {
     // Use the chat/completions endpoint for GPT-4 (or GPT-3.5)
     const response = await axios.post(
@@ -93,9 +93,9 @@ export const fineTunePrompt = async (prompt: string) => {
       }
     );
     // Extract the fine-tuned prompt from the response
-    const tunedPrompt = response.data.choices[0].message.content.trim();
+    const finalPrompt = response.data.choices[0].message.content.trim();
 
-    return tunedPrompt;
+    return finalPrompt;
   } catch (error) {
     console.error('Error in fine-tuning prompt:', error);
     throw new Error('Failed to fine-tune prompt');
@@ -103,12 +103,12 @@ export const fineTunePrompt = async (prompt: string) => {
 };
 
 // Save the original and final prompts into the MongoDB database
-export const savePromptToDB = async (originalPrompt: string, translatedPrompt: string, finalPrompt: string) => {
+export const savePromptToDB = async (originalPrompt: string, gptPrompt: string, midjourneyPrompt: string) => {
   try {
     const newPrompt = new MidjourneyData({
       originalPrompt: originalPrompt,
-      translatedPrompt: translatedPrompt,
-      finalPrompt: finalPrompt,
+      gptPrompt: gptPrompt,
+      midjourneyPrompt: midjourneyPrompt,
       imageUrl: '',  // We'll update this after getting the image URL from Midjourney
       imageName: '', // We'll update this after getting the image name from Midjourney
     });
@@ -138,16 +138,16 @@ export const startProcess = async () => {
       
       if (randomPrompt) {
         // Translate the random prompt
-      const translatedPrompt = await translatePrompt(randomPrompt);
+      const gptPrompt = await getGPTPrompt(randomPrompt);
   
       // Fine-tune the translated prompt to Midjourney format
-      const finalPrompt = await fineTunePrompt(translatedPrompt);
+      const midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
   
       // Save the prompts to the database
-      const promptId = await savePromptToDB(randomPrompt, translatedPrompt, finalPrompt);
+      const promptId = await savePromptToDB(randomPrompt, gptPrompt, midjourneyPrompt);
       
       //Send the final prompt to Midjourney 
-      const answer = await sendToMidjourney(finalPrompt, promptId as string);
+      const answer = await sendToMidjourney(midjourneyPrompt, promptId as string);
      
       if(answer) {
         // Respond with success
@@ -187,8 +187,7 @@ export const fetchData = async (req: Request, res: Response) => {
     .sort({ createdAt: -1 }) // Sort by createdAt (most recent first)
     .skip(skips)
     .limit(limit); // Fetch all stored prompts
-    console.log(page)
-    console.log(limit)
+
     // Count the total number of documents
     const total = await MidjourneyData.countDocuments();
 

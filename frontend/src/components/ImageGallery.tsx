@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 type ImageGalleryProps = {
   prompts: {
     originalPrompt: string;
+    gptPrompt: string;
+    midjourneyPrompt: string;
     finalPrompt: string;
     imageUrls: string[]; // Array of 4 image URLs
   }[] | undefined; // Accept undefined as a valid type
@@ -106,12 +108,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Def
       {prompts.length > 0 ? (
         prompts.map((prompt, index) => (
           <div className="image-item" key={index}>
-            {/* Column 1: originalPrompt, finalPrompt, and Go to Midjourney button */}
+            {/* Column 1: originalPrompt, gptPrompt, midjourneyPrompt, and Go to Midjourney button */}
             <div className="prompts-column">
               <h3>Original Prompt</h3>
               <p>{prompt.originalPrompt}</p>
-              <h3>Final Prompt</h3>
-              <p>{prompt.finalPrompt}</p>
+              <h3>ChatGPT Prompt</h3>
+              <p>{prompt.gptPrompt}</p>
+              <h3>Midjourney Prompt</h3>
+              <p>{prompt.midjourneyPrompt}</p>
 
               {/* "Go to Midjourney" button */}
               <button 
