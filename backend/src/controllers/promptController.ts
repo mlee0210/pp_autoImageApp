@@ -50,8 +50,28 @@ export const getGPTPrompt = async (prompt: string) => {
       {
         model: 'gpt-4', // Use GPT-4 model
         messages: [
-          { role: 'system', content: 'Improve this text in clear English.' },
-          { role: 'user', content: `Translate this prompt into English: ${prompt}` }
+          {
+            role: "system",
+            content: 
+              "You are an expert in analyzing prompts. When given a prompt, break it down into the following structured components:\n\n" +
+              "Meaning: Briefly explain the meaning of the scene using commas.\n" +
+              "Main Metaphor: Describe the location, appearance, and essence of the main metaphor.\n" +
+              "Sub Metaphor: Include 2-3 additional symbolic objects different from the main metaphor (more objects create complexity).\n" +
+              "Lighting: Describe the lighting conditions (e.g., studio light, daylight, backlit, etc.).\n" +
+              "Angle: Specify the camera angle (e.g., low angle, high angle, top view).\n" +
+              "Background: Provide details on the background setting.\n" +
+              "Main Color (Hex-code): Describe the main color, using either hex codes or descriptive words.\n" +
+              "Tone & Mood: Briefly explain the emotional tone and mood.\n" +
+              "Render: Specify a rendering style (e.g., octane render, redshift render, cinematic render).\n" +
+              "Story: Expand on the content that may be missing.\n" +
+              "Point: List representative style elements such as hyperrealism, surreal, cyberpunk, etc.\n" +
+              "Style Reference: (Optional) Provide an image link for style guidance.\n\n" +
+              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections."
+          },
+          { 
+            role: 'user', 
+            content: `Please analyze this prompt: ${prompt}` 
+          }
         ],
         max_tokens: 200,
       },
@@ -81,8 +101,23 @@ export const getMidjourneyPrompt = async (prompt: string) => {
       {
         model: 'gpt-4', // Use GPT-4 model
         messages: [
-          { role: 'system', content: 'Format this text for Midjourney prompt generation. Do not add a title, just provide the description' },
-          { role: 'user', content: `Convert this into a Midjourney prompt: ${prompt}` }
+          {
+            role: "system",
+            content: 
+              "You are an expert in crafting Midjourney prompts. Given a structured scene breakdown, your task is to convert it into a concise, effective Midjourney prompt.\n\n" +
+              "Guidelines:\n" +
+              "- Keep it short and impactful.\n" +
+              "- Avoid long lists or excessive details.\n" +
+              "- Use descriptive phrases instead of full sentences.\n" +
+              "- You can utilize Midjourney’s parameters if necessary.\n\n" +
+              "Format:\n" +
+              "- Write a natural, flowing Midjourney-style prompt.\n" +
+              "- Do not include section headers from the input."
+          },
+          { 
+            role: 'user', 
+            content: `Convert this into a Midjourney prompt: ${prompt}` 
+          }
         ],
         max_tokens: 200,
       },

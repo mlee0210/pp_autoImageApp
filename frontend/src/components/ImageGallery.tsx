@@ -109,7 +109,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Def
         prompts.map((prompt, index) => (
           <div className="image-item" key={index}>
             {/* Column 1: originalPrompt, gptPrompt, midjourneyPrompt, and Go to Midjourney button */}
-            <div className="prompts-column">
+            <div className="prompts-column" style={{ whiteSpace: "pre-line" }}>
               <h3>Original Prompt</h3>
               <p>{prompt.originalPrompt}</p>
               <h3>ChatGPT Prompt</h3>
