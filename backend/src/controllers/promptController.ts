@@ -86,8 +86,8 @@ export const getGPTPrompt = async (prompt: string) => {
 
     return gptPrompt;
   } catch (error) {
-    console.error('Error in translating prompt:', error);
-    throw new Error('Failed to translate prompt');
+    console.error('Error in getting GPT prompt:', error);
+    throw new Error('Failed to get GPT prompt');
   }
 };
 

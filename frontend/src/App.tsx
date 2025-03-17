@@ -100,15 +100,36 @@ const App: React.FC = () => {
     fetchData(currentPage); // Fetch data for the current page
   }, [currentPage]);
 
+  // const handleNextPage = () => {
+  //   if (currentPage < totalPages) {
+  //     setCurrentPage(currentPage + 1);
+  //     setTimeout(() => {
+  //       window.scrollTo({ top: 0, behavior: "smooth" });
+  //     }, 100);    
+  //   }
+  // };
+
+  // const handlePreviousPage = () => {
+  //   if (currentPage > 1) {
+  //     setCurrentPage(currentPage - 1);
+  //     setTimeout(() => {
+  //       window.scrollTo({ top: 0, behavior: "smooth" });
+  //     }, 100);     
+  //   }
+  // };
+
   const handleNextPage = () => {
     if (currentPage < totalPages) {
+      setPrompts([]); // Clear existing content
       setCurrentPage(currentPage + 1);
+      setTimeout(() => fetchData(currentPage + 1), 500); // Wait before fetching new data
     }
   };
-
   const handlePreviousPage = () => {
     if (currentPage > 1) {
+      setPrompts([]);
       setCurrentPage(currentPage - 1);
+      setTimeout(() => fetchData(currentPage - 1), 500);
     }
   };
 
