@@ -102,6 +102,22 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Def
     return '#'; // Return a default link if the regex fails
   };
 
+  const TruncatedText = ({ text }: { text: string }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    console.log(text.split(" ").length);
+
+    return (
+      <div className="truncated-text">
+        <p className={isExpanded ? "expanded" : "collapsed"}>{text}</p>
+        {text.split(" ").length > 10 && (  // Show 'Read More' only if text is long
+          <button onClick={() => setIsExpanded(!isExpanded)} className="read-more">
+            {isExpanded ? "Read Less" : "Read More"}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="gallery-container">
       {/* Check if 'prompts' is an array and has items */}
@@ -111,11 +127,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Def
             {/* Column 1: originalPrompt, gptPrompt, midjourneyPrompt, and Go to Midjourney button */}
             <div className="prompts-column" style={{ whiteSpace: "pre-line" }}>
               <h3>Original Prompt</h3>
-              <p>{prompt.originalPrompt}</p>
+              <TruncatedText text={prompt.originalPrompt} />
               <h3>ChatGPT Prompt</h3>
-              <p>{prompt.gptPrompt}</p>
+              <TruncatedText text={prompt.gptPrompt} />
               <h3>Midjourney Prompt</h3>
-              <p>{prompt.midjourneyPrompt}</p>
+              <TruncatedText text={prompt.midjourneyPrompt} />
 
               {/* "Go to Midjourney" button */}
               <button 
