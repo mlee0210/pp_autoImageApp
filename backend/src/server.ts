@@ -1,33 +1,3 @@
-// // src/server.ts
-// import express from 'express';
-// import cors from "cors";
-// import dotenv from 'dotenv';
-// import connectDB from "./connectDB";
-// import { promptRoutes } from './controllers/promptController';
-// // import DiscordBot from './services/discordBot';
-
-// dotenv.config();
-
-// const app = express();
-// app.use(cors());
-// app.use(express.json());
-
-// // Connect to MongoDB
-// connectDB();
-
-// // Start the Discord Bot
-// // const discordBot = new DiscordBot(); // Initialize the bot to start it
-
-// // Routes
-// app.use('/api/prompts', promptRoutes);
-
-// const PORT = process.env.PORT || 5001;
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
-
-
-
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -46,7 +16,6 @@ app.use(express.json());
 connectDB();
 
 // WebSocket server setup
-
 let isRunning = false;
 
 // ✅ Function to continuously process prompts until stopped

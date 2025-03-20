@@ -15,6 +15,7 @@ import {
 } from "./utils";
 import { WsMessage } from "./discord.ws";
 // import { faceSwap } from "./face.swap";
+
 export class Midjourney extends MidjourneyMessage {
   // public config: MJConfig;
   private wsClient?: WsMessage;

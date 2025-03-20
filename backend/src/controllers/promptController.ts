@@ -3,10 +3,8 @@ import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import { MidjourneyData } from '../models/midjourneyData';
 import RandomPrompt from '../models/randomPrompts';
-import express from 'express';
 import sendToMidjourney from './imagine-ws';
 import { broadcastMessage } from "../utils/websocket"; // Import WebSocket function
-import { random } from '../utils';
 
 const promptRoutes: Router = Router();
 
@@ -48,7 +46,7 @@ export const getGPTPrompt = async (prompt: string) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions', // Updated endpoint
       {
-        model: 'gpt-4', // Use GPT-4 model
+        model: 'gpt-3.5-turbo', // Use GPT-4 model
         messages: [
           {
             role: "system",
@@ -99,7 +97,7 @@ export const getMidjourneyPrompt = async (prompt: string) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions', // Updated endpoint
       {
-        model: 'gpt-4', // Use GPT-4 model
+        model: 'gpt-3.5-turbo', // Use GPT-4 model
         messages: [
           {
             role: "system",
