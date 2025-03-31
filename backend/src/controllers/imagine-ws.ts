@@ -27,7 +27,7 @@ async function sendToMidjourney(finalPrompt: string, promptId: string) {
     });
 
     // Log the result of the Imagine request
-    console.log({ Imagine });
+    // console.log({ Imagine });
 
     // Check if the response is successful
     if (!Imagine) {

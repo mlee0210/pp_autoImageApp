@@ -307,7 +307,7 @@ export class WsMessage {
     }
     const message = msg.d;
     if (message.channel_id === this.config.ChannelId) {
-      this.log(data);
+      // this.log(data);
     }
     this.log("event", msg.t);
     // console.log(data);

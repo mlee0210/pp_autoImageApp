@@ -172,16 +172,31 @@ export const startProcess = async () => {
       if (randomPrompt) {
         // Translate the random prompt
       const gptPrompt = await getGPTPrompt(randomPrompt);
-  
-      // Fine-tune the translated prompt to Midjourney format
-      const midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
-  
-      // Save the prompts to the database
-      const promptId = await savePromptToDB(randomPrompt, gptPrompt, midjourneyPrompt);
       
-      //Send the final prompt to Midjourney 
-      const answer = await sendToMidjourney(midjourneyPrompt, promptId as string);
-     
+      const midjourneyPrompts = [];
+
+      // Generate 10 Midjourney prompts
+      // Midjourney prompt 몇개 생성할지 지정
+      for (let i = 0; i < 2; i++) {
+        const midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
+        if (midjourneyPrompt) {
+          midjourneyPrompts.push(midjourneyPrompt);
+        }
+      }
+
+      let answer = false;
+      
+      // Send each Midjourney prompt 10 times
+      // Midjourney bot에게 몇번의 이미지 생성 요청할지 지정 
+      for (const midjourneyPrompt of midjourneyPrompts) {
+        for (let i = 0; i < 3; i++) {
+          const promptId = await savePromptToDB(randomPrompt, gptPrompt, midjourneyPrompt); // Save each iteration separately
+          await sendToMidjourney(midjourneyPrompt, promptId as string);
+          await new Promise(resolve => setTimeout(resolve, 30000)); // 30-second delay
+        }
+        answer = true;
+      }
+
       if(answer) {
         // Respond with success
         broadcastMessage("Iteration Complete");
