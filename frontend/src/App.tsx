@@ -121,7 +121,7 @@ const App: React.FC = () => {
               onChange={(e) => setUserPrompt(e.target.value)}
               disabled={loading || isProcessing}
               className="textarea"
-              style={{ width: "500px", height: "200px" }}
+              // style={{ width: "500px", height: "200px" }}
             />
           </div>
 
