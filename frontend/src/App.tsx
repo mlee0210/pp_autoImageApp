@@ -7,6 +7,17 @@ import "./App.css";
 const API_BASE_URL = "http://localhost:5001";
 const WS_URL = "ws://localhost:8080";
 const ITEMS_PER_PAGE = 10;
+const PAGE_GROUP_SIZE = 10;
+
+const getPageGroup = (currentPage: number, totalPages: number) => {
+  const start = Math.floor((currentPage - 1) / PAGE_GROUP_SIZE) * PAGE_GROUP_SIZE + 1;
+  const end = Math.min(start + PAGE_GROUP_SIZE - 1, totalPages);
+  const group = [];
+  for (let i = start; i <= end; i++) {
+    group.push(i);
+  }
+  return group;
+};
 
 const App: React.FC = () => {
   const [prompts, setPrompts] = useState<any[]>([]);
@@ -178,14 +189,14 @@ const App: React.FC = () => {
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage === 1 || loading}
         />
-        {[...Array(totalPages)].map((_, index) => (
+        {getPageGroup(currentPage, totalPages).map((page) => (
           <button
-            key={index + 1}
-            className={currentPage === index + 1 ? "active" : ""}
-            onClick={() => handlePageChange(index + 1)}
+            key={page}
+            onClick={() => handlePageChange(page)}
+            className={currentPage === page ? "active" : ""}
             disabled={loading}
           >
-            {index + 1}
+            {page}
           </button>
         ))}
         <Button
