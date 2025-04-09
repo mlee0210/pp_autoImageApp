@@ -18,6 +18,10 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const [userPrompt, setUserPrompt] = useState("");
+  const [chatGPTNumber, setChatGPTNumber] = useState("");
+  const [totalNumber, setTotalNumber] = useState("");
+
   useEffect(() => {
     const socketInstance = new WebSocket(WS_URL);
     setSocket(socketInstance);
@@ -34,6 +38,12 @@ const App: React.FC = () => {
 
     return () => socketInstance.close();
   }, []);
+
+  const handleUpdateClick = () => {
+    setPrompts([]);
+    fetchData(1);
+    setCurrentPage(1);
+  };
 
   const fetchData = async (page: number) => {
     setLoading(true);
@@ -64,7 +74,11 @@ const App: React.FC = () => {
     setIsProcessing(true);
     setIsIterationComplete(false);
     try {
-      await axios.post(`${API_BASE_URL}/api/prompts/start`);
+      await axios.post(`${API_BASE_URL}/api/prompts/start`, {
+        prompt: userPrompt,
+        chatGPTNumber: parseInt(chatGPTNumber),
+        totalNumber: parseInt(totalNumber),
+      });
       console.log("Process started");
     } catch (error) {
       console.error("Error starting cycle", error);
@@ -86,15 +100,84 @@ const App: React.FC = () => {
     }
   };
 
+  const isStartDisabled =
+    loading ||
+    isProcessing ||
+    userPrompt.trim() === "" ||
+    chatGPTNumber.trim() === "" ||
+    totalNumber.trim() === "";
+
   return (
     <div className="app">
-      <Button label="START" onClick={startCycle} disabled={loading || isProcessing || !isIterationComplete} />
-      <Button label="STOP" onClick={stopCycle} disabled={!isProcessing} />
-      <Button label="UPDATE" onClick={() => handlePageChange(1)} disabled={loading || isProcessing || !isIterationComplete} />
+      <div className="form-container">
+        <div className="form-group-row">
+          {/* Original Prompt */}
+          <div className="form-group">
+            <label className="form-label">Original Prompt</label>
+            <textarea
+              rows={10}
+              placeholder="Type your custom prompt..."
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+              disabled={loading || isProcessing}
+              className="textarea"
+              style={{ width: "500px", height: "200px" }}
+            />
+          </div>
+
+          {/* Side Inputs */}
+          <div className="form-group-side">
+            <div className="form-group">
+              <label className="form-label">Total Number</label>
+              <input
+                type="number"
+                min={1}
+                placeholder="e.g. 10"
+                value={totalNumber}
+                onChange={(e) => setTotalNumber(e.target.value)}
+                disabled={loading || isProcessing}
+                className="input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">ChatGPT Number</label>
+              <input
+                type="number"
+                min={1}
+                placeholder="e.g. 2"
+                value={chatGPTNumber}
+                onChange={(e) => setChatGPTNumber(e.target.value)}
+                disabled={loading || isProcessing}
+                className="input"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="button-row">
+        <Button label="START" onClick={startCycle} disabled={isStartDisabled} />
+        <Button label="STOP" onClick={stopCycle} disabled={!isProcessing} />
+        <Button
+          label="UPDATE"
+          onClick={handleUpdateClick}
+          disabled={loading || isProcessing || !isIterationComplete}
+        />
+      </div>
+
       {notificationMessage && <p className="notification">{notificationMessage}</p>}
-      <ImageGallery prompts={prompts} />
+
+
+      <div className="gallery-wrapper">
+        <ImageGallery prompts={prompts} />
+      </div>
+
       <div className="pagination">
-        <Button label="Previous" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1 || loading} />
+        <Button
+          label="Previous"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1 || loading}
+        />
         {[...Array(totalPages)].map((_, index) => (
           <button
             key={index + 1}
@@ -105,7 +188,11 @@ const App: React.FC = () => {
             {index + 1}
           </button>
         ))}
-        <Button label="Next" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages || loading} />
+        <Button
+          label="Next"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || loading}
+        />
       </div>
     </div>
   );

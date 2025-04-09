@@ -5,6 +5,7 @@ import { MidjourneyData } from '../models/midjourneyData';
 import RandomPrompt from '../models/randomPrompts';
 import sendToMidjourney from './imagine-ws';
 import { broadcastMessage } from "../utils/websocket"; // Import WebSocket function
+import dayjs from 'dayjs';
 
 const promptRoutes: Router = Router();
 
@@ -20,7 +21,8 @@ export const getRandomPrompt = async () => {
     }
 
     // Generate a random index
-    const randomIndex = Math.floor(Math.random() * count);
+    // const randomIndex = Math.floor(Math.random() * count);
+    const randomIndex = 0;
 
     // Fetch the random prompt
     const randomPrompt = await RandomPrompt.findOne().skip(randomIndex);
@@ -64,7 +66,8 @@ export const getGPTPrompt = async (prompt: string) => {
               "Story: Expand on the content that may be missing.\n" +
               "Point: List representative style elements such as hyperrealism, surreal, cyberpunk, etc.\n" +
               "Style Reference: (Optional) Provide an image link for style guidance.\n\n" +
-              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections."
+              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections."+
+              "- If there are Midjourney parameters, leave as is, and add it to the end of the prompt. Do not try to describe it in words. Leave it as it is.\n\n"
           },
           { 
             role: 'user', 
@@ -107,7 +110,7 @@ export const getMidjourneyPrompt = async (prompt: string) => {
               "- Keep it short and impactful.\n" +
               "- Avoid long lists or excessive details.\n" +
               "- Use descriptive phrases instead of full sentences.\n" +
-              "- You can utilize Midjourney’s parameters if necessary.\n\n" +
+              "- If there are Midjourney parameters, leave as is, and add it to the end of the prompt. Do not try to describe it in words. Leave it as it is.\n\n" +
               "Format:\n" +
               "- Write a natural, flowing Midjourney-style prompt.\n" +
               "- Do not include section headers from the input."
@@ -136,7 +139,7 @@ export const getMidjourneyPrompt = async (prompt: string) => {
 };
 
 // Save the original and final prompts into the MongoDB database
-export const savePromptToDB = async (originalPrompt: string, gptPrompt: string, midjourneyPrompt: string) => {
+export const savePromptToDB = async (originalPrompt: string, gptPrompt: string, midjourneyPrompt: string, imageNumber: string) => {
   try {
     const newPrompt = new MidjourneyData({
       originalPrompt: originalPrompt,
@@ -144,6 +147,7 @@ export const savePromptToDB = async (originalPrompt: string, gptPrompt: string, 
       midjourneyPrompt: midjourneyPrompt,
       imageUrl: '',  // We'll update this after getting the image URL from Midjourney
       imageName: '', // We'll update this after getting the image name from Midjourney
+      imageNumber: imageNumber,
     });
     const savedPrompt = await newPrompt.save();  // Save the prompt in the database
     return savedPrompt._id;  // Return the prompt ID so we can later update it
@@ -155,62 +159,91 @@ export const savePromptToDB = async (originalPrompt: string, gptPrompt: string, 
 let isProcessing = false;
 
 // The main process that orchestrates fetching the prompt, translating, fine-tuning, and saving it
-export const startProcess = async () => {
+export const startProcess = async (req?: Request, res?: Response) => {
+  const userPrompt = req?.body?.prompt;
+  const totalNumber = req?.body?.totalNumber;
+  const gptNumber = req?.body?.chatGPTNumber;
+
+
   console.log("Inside startProcess")
-  // If already processing, do nothing
+
   if (isProcessing) {
     broadcastMessage("Process is already running");
+    return;
   }
+
   isProcessing = true; // Set processing flag to true
-  while (isProcessing) {
+
+  while (true) {
     try {
       console.log("Running process loop...");
-
-      // Fetch a random prompt
-      const randomPrompt = await getRandomPrompt();
       
-      if (randomPrompt) {
-        // Translate the random prompt
-      const gptPrompt = await getGPTPrompt(randomPrompt);
-      
-      const midjourneyPrompts = [];
-
-      // Generate 10 Midjourney prompts
-      // Midjourney prompt 몇개 생성할지 지정
-      for (let i = 0; i < 2; i++) {
-        const midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
-        if (midjourneyPrompt) {
-          midjourneyPrompts.push(midjourneyPrompt);
+      if (userPrompt && totalNumber && gptNumber) {
+        const gptPrompts = [];
+        for (let i = 1; i <= gptNumber; i++) {
+          const gptPrompt = await getGPTPrompt(userPrompt);
+          if(gptPrompt) {
+            gptPrompts.push(gptPrompt);
+          }
         }
-      }
+        const baseIteration = Math.floor(totalNumber / gptNumber);
+        const remainder = totalNumber % gptNumber;
+        // 날짜 포맷: YYMMDD
+        const todayPrefix = dayjs().format("YYMMDD");
+        
+        // 1️⃣ 오늘 날짜의 마지막 gptIndex 조회
+        const latestNumber = await getLatestNumberForToday(todayPrefix); 
+        let gptIndexOffset = latestNumber + 1; // 새로 시작할 gptIndex
 
-      let answer = false;
-      
-      // Send each Midjourney prompt 10 times
-      // Midjourney bot에게 몇번의 이미지 생성 요청할지 지정 
-      for (const midjourneyPrompt of midjourneyPrompts) {
-        for (let i = 0; i < 3; i++) {
-          const promptId = await savePromptToDB(randomPrompt, gptPrompt, midjourneyPrompt); // Save each iteration separately
-          await sendToMidjourney(midjourneyPrompt, promptId as string);
-          await new Promise(resolve => setTimeout(resolve, 30000)); // 30-second delay
+        for (let i = 1; i <= gptPrompts.length; i++) {
+          const gptPrompt = gptPrompts[i - 1];
+          const currentIndex = gptIndexOffset + i - 1;
+
+          // 마지막 gptPrompt에 나머지를 추가로 할당
+          const currentIterations = i === gptPrompts.length - 1 ? baseIteration + remainder : baseIteration;
+
+          for (let j = 1; j <= currentIterations; j++) {
+            const imageNumber = `${todayPrefix}_${currentIndex}_${j}`;
+            let midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
+            if (midjourneyPrompt) {
+              midjourneyPrompt += "--ar 16:9 --v 6.1 --s 1000 --relax";
+            }
+            const promptId = await savePromptToDB(userPrompt, gptPrompt, midjourneyPrompt, imageNumber);
+            await sendToMidjourney(midjourneyPrompt, promptId as string);
+            await new Promise(resolve => setTimeout(resolve, 20000)); // 20초 대기
+
+            if (!isProcessing) {
+              console.log("Stop requested. Breaking after current iteration.");
+              break;
+            }
+          }
+          if(!isProcessing) break;
         }
-        answer = true;
-      }
-
-      if(answer) {
-        // Respond with success
         broadcastMessage("Iteration Complete");
+        console.log("Process iteration completed.");
       }
-      // Once the process is complete, broadcast a message to all WebSocket clients
-      // broadcastMessage('Process completed successfully!');
-      console.log("Process iteration completed.");
-      }
-      
     } catch (error) {
         broadcastMessage("Error occurred during process!"); // Ensure this function exists
     }
+    if (!isProcessing) {
+      console.log("Process fully stopped.");
+      break;
+    }
   }
+  isProcessing = false;
 };
+
+async function getLatestNumberForToday(todayPrefix: string): Promise<number> {
+  const latestPrompt = await MidjourneyData.findOne({ imageNumber: { $regex: `^${todayPrefix}_\\d+_\\d+$` } })
+    .sort({ createdAt: -1 })
+    .exec();
+
+  if (!latestPrompt || !latestPrompt.imageNumber) return -1;
+
+  // 예: '250409_3_1' → 3 추출
+  const match = latestPrompt.imageNumber.match(/^(\d{6})_(\d+)_\d+$/);
+  return match ? parseInt(match[2], 10) : -1;
+}
 
 // Stop Process Function
 export const stopProcess = async (req: Request, res: Response) => {
@@ -251,6 +284,31 @@ export const fetchData = async (req: Request, res: Response) => {
   }
 };
 
+export const rerunProcess = async (req: Request, res: Response) => {
+  console.log('inside rerunProcess');
+  const { originalPrompt, gptPrompt, midjourneyPrompt } = req.body;
+
+  // 날짜 포맷: YYMMDD
+  const todayPrefix = dayjs().format("YYMMDD");
+        
+  // 1️⃣ 오늘 날짜의 마지막 gptIndex 조회
+  const latestNumber = await getLatestNumberForToday(todayPrefix); 
+  let gptIndexOffset = latestNumber + 1; // 새로 시작할 gptIndex
+  const imageNumber = `${todayPrefix}_${gptIndexOffset}_1`;
+  
+  try {
+    if (!originalPrompt || !gptPrompt || !midjourneyPrompt) {
+      // return res.status(400).json({ success: false, error: 'Missing required fields' });
+      console.log('error');
+    }
+    const promptId = await savePromptToDB(originalPrompt, gptPrompt, midjourneyPrompt, imageNumber);
+    await sendToMidjourney(midjourneyPrompt, promptId as string);
+  } catch (error) {
+    broadcastMessage("Error occurred during re-run process!"); // Ensure this function exists
+}
+
+};
+
 // Define the routes for the backend
 promptRoutes.get('/', fetchData);
 
@@ -260,7 +318,8 @@ promptRoutes.post('/stop', stopProcess);
 
 promptRoutes.get('/allData', fetchData);
 
+promptRoutes.post('/run-again', rerunProcess);
 
 
 // Export the routes so they can be used in the main server
-export { promptRoutes };
+export default promptRoutes;

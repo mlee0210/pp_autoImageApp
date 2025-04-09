@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from "axios";
+
+const API_BASE_URL = "http://localhost:5001";
 
 type ImageGalleryProps = {
   prompts: {
@@ -6,112 +9,104 @@ type ImageGalleryProps = {
     gptPrompt: string;
     midjourneyPrompt: string;
     finalPrompt: string;
-    imageUrls: string[]; // Array of 4 image URLs
-  }[] | undefined; // Accept undefined as a valid type
+    imageUrls: string[];
+    imageNumber: string;
+  }[] | undefined;
 };
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Default to empty array
+const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalImageUrl, setModalImageUrl] = useState<string>(""); 
-  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0); // Store the index of the current image in the modal
-  const [currentPromptImages, setCurrentPromptImages] = useState<string[]>([]); // Store the images of the current prompt
-  
-  const modalContentRef = useRef<HTMLDivElement>(null); // Reference to modal content for detecting outside click
+  const [modalImageUrl, setModalImageUrl] = useState<string>('');
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
+  const [currentPromptImages, setCurrentPromptImages] = useState<string[]>([]);
+  const modalContentRef = useRef<HTMLDivElement>(null);
 
-  // Function to open the modal and set the current image
   const openModal = (imageUrls: string[], index: number) => {
-    console.log('Opening modal with image URL:', imageUrls[index]); // Debugging log
-    setCurrentPromptImages(imageUrls); // Set the current prompt images
-    setModalImageUrl(imageUrls[index]); // Set the initial image for the modal
-    setCurrentImageIndex(index); // Set the initial index
-    setIsModalOpen(true); // Open the modal
+    setCurrentPromptImages(imageUrls);
+    setModalImageUrl(imageUrls[index]);
+    setCurrentImageIndex(index);
+    setIsModalOpen(true);
   };
 
-  // Function to close the modal
   const closeModal = () => {
-    console.log('Closing modal'); // Debugging log
     setIsModalOpen(false);
-    setModalImageUrl("");
+    setModalImageUrl('');
     setCurrentImageIndex(0);
   };
 
-  // Function to navigate to the next image in the modal
   const nextImage = () => {
-    if (currentImageIndex < currentPromptImages.length - 1) {
-      setCurrentImageIndex(currentImageIndex + 1);
-      setModalImageUrl(currentPromptImages[currentImageIndex + 1]);
-    } else {
-      setCurrentImageIndex(0);
-      setModalImageUrl(currentPromptImages[0]);
-    }
+    const nextIndex = (currentImageIndex + 1) % currentPromptImages.length;
+    setCurrentImageIndex(nextIndex);
+    setModalImageUrl(currentPromptImages[nextIndex]);
   };
 
-  // Function to navigate to the previous image in the modal
   const prevImage = () => {
-    if (currentImageIndex > 0) {
-      setCurrentImageIndex(currentImageIndex - 1);
-      setModalImageUrl(currentPromptImages[currentImageIndex - 1]);
-    } else {
-      setCurrentImageIndex(currentPromptImages.length - 1);
-      setModalImageUrl(currentPromptImages[currentPromptImages.length - 1]);
-    }
+    const prevIndex =
+      (currentImageIndex - 1 + currentPromptImages.length) % currentPromptImages.length;
+    setCurrentImageIndex(prevIndex);
+    setModalImageUrl(currentPromptImages[prevIndex]);
   };
 
-  // Handle keyboard events for navigation and closing the modal
   useEffect(() => {
     if (isModalOpen) {
       const handleKeydown = (event: KeyboardEvent) => {
-        if (event.key === 'ArrowLeft') {
-          prevImage();
-        } else if (event.key === 'ArrowRight') {
-          nextImage();
-        } else if (event.key === 'Escape') {
-          closeModal();
-        }
+        if (event.key === 'ArrowLeft') prevImage();
+        else if (event.key === 'ArrowRight') nextImage();
+        else if (event.key === 'Escape') closeModal();
       };
 
       window.addEventListener('keydown', handleKeydown);
-
-      // Cleanup the event listener when the modal is closed
-      return () => {
-        window.removeEventListener('keydown', handleKeydown);
-      };
+      return () => window.removeEventListener('keydown', handleKeydown);
     }
   }, [isModalOpen, currentImageIndex, currentPromptImages]);
 
-  // Close the modal if click happens outside of the modal content
   const handleOverlayClick = (event: React.MouseEvent) => {
     if (modalContentRef.current && !modalContentRef.current.contains(event.target as Node)) {
       closeModal();
     }
   };
 
-  // Prevent click events inside modal content from closing the modal
   const handleModalContentClick = (event: React.MouseEvent) => {
     event.stopPropagation();
   };
 
-  // Function to get the Midjourney job link from the first image URL
   const getMidjourneyLink = (imageUrl: string) => {
-    const regex = /\/([^/]+)\/0_0.png$/; // Regex to extract the ID
+    const regex = /\/([^/]+)\/0_0.png$/;
     const match = imageUrl.match(regex);
     if (match) {
-      const jobId = match[1]; // Extracted job ID
-      return `https://www.midjourney.com/jobs/${jobId}?index=0`; // Construct the URL
+      const jobId = match[1];
+      return `https://www.midjourney.com/jobs/${jobId}?index=0`;
     }
-    return '#'; // Return a default link if the regex fails
+    return '#';
+  };
+
+  const handleRunItAgain = async (prompt: {
+    originalPrompt: string;
+    gptPrompt: string;
+    midjourneyPrompt: string;
+    imageNumber: string;
+  }) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/prompts/run-again`, {
+        originalPrompt: prompt.originalPrompt,
+        gptPrompt: prompt.gptPrompt,
+        midjourneyPrompt: prompt.midjourneyPrompt,
+        imageNumber: prompt.imageNumber,
+      });
+    } catch (error) {
+      console.error('Run It Again Error:', error);
+      alert('Error running it again.');
+    }
   };
 
   const TruncatedText = ({ text }: { text: string }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    console.log(text.split(" ").length);
-
     return (
       <div className="truncated-text">
-        <p className={isExpanded ? "expanded" : "collapsed"}>{text}</p>
-        {text.split(" ").length > 10 && (  // Show 'Read More' only if text is long
+        <p className={isExpanded ? 'expanded' : 'collapsed'}>{text}</p>
+        {text.split(' ').length > 10 && (
           <button onClick={() => setIsExpanded(!isExpanded)} className="read-more">
-            {isExpanded ? "Read Less" : "Read More"}
+            {isExpanded ? 'Read Less' : 'Read More'}
           </button>
         )}
       </div>
@@ -120,34 +115,46 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Def
 
   return (
     <div className="gallery-container">
-      {/* Check if 'prompts' is an array and has items */}
       {prompts.length > 0 ? (
         prompts.map((prompt, index) => (
           <div className="image-item" key={index}>
-            {/* Column 1: originalPrompt, gptPrompt, midjourneyPrompt, and Go to Midjourney button */}
-            <div className="prompts-column" style={{ whiteSpace: "pre-line" }}>
+            <div className="prompts-column" style={{ whiteSpace: 'pre-line' }}>
+              <h3>Image Number</h3>
+              <p>{prompt.imageNumber}</p>
+
               <h3>Original Prompt</h3>
               <TruncatedText text={prompt.originalPrompt} />
+
               <h3>ChatGPT Prompt</h3>
               <TruncatedText text={prompt.gptPrompt} />
+
               <h3>Midjourney Prompt</h3>
               <TruncatedText text={prompt.midjourneyPrompt} />
 
-              {/* "Go to Midjourney" button */}
-              <button 
-                onClick={() => window.open(getMidjourneyLink(prompt.imageUrls[0]), '_blank')}
-              >
+              <button onClick={() => window.open(getMidjourneyLink(prompt.imageUrls[0]), '_blank')}>
                 View in Midjourney
+              </button>
+
+              <button
+                onClick={() =>
+                  handleRunItAgain({
+                    originalPrompt: prompt.originalPrompt,
+                    gptPrompt: prompt.gptPrompt,
+                    midjourneyPrompt: prompt.midjourneyPrompt,
+                    imageNumber: prompt.imageNumber,
+                  })
+                }
+              >
+                Run It Again
               </button>
             </div>
 
-            {/* Columns 2 - 5: imageUrls */}
             <div className="images-column-container">
               {prompt.imageUrls.map((imageUrl, idx) => (
                 <div
                   key={idx}
                   className="image-column"
-                  onClick={() => openModal(prompt.imageUrls, idx)} // Open modal on image click
+                  onClick={() => openModal(prompt.imageUrls, idx)}
                 >
                   <img src={imageUrl} alt={`Generated image ${idx + 1}`} className="gallery-image" />
                 </div>
@@ -156,19 +163,22 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => { // Def
           </div>
         ))
       ) : (
-        <p>No prompts available.</p> // Display a message if prompts array is empty or not available
+        <p>No prompts available.</p>
       )}
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={handleOverlayClick}>
           <div className="modal-content" ref={modalContentRef} onClick={handleModalContentClick}>
-            <button className="close-modal" onClick={closeModal}>X</button>
-            
-            {/* Navigation Buttons for Image */}
-            <button className="modal-nav-left-button" onClick={prevImage}>{"<"}</button>
+            <button className="close-modal" onClick={closeModal}>
+              X
+            </button>
+            <button className="modal-nav-left-button" onClick={prevImage}>
+              {'<'}
+            </button>
             <img src={modalImageUrl} alt="Modal image" className="modal-image" />
-            <button className="modal-nav-right-button" onClick={nextImage}>{">"}</button>
+            <button className="modal-nav-right-button" onClick={nextImage}>
+              {'>'}
+            </button>
           </div>
         </div>
       )}

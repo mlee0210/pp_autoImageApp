@@ -6,6 +6,9 @@ interface IPrompt extends Document {
   midjourneyPrompt: string;
   imageUrls: string[];  // Array to store the image URLs
   imageNames?: string[]; // Optional array to store image names (if needed)
+  imageNumber: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const PromptSchema: Schema = new Schema(
@@ -14,7 +17,8 @@ const PromptSchema: Schema = new Schema(
     gptPrompt: { type: String, required: true },
     midjourneyPrompt: { type: String, required: true },
     imageUrls: { type: [String], required: true },  // Array of image URLs
-    imageNames: { type: [String] },  // Optional array of image names (if needed)
+    imageNames: { type: [String] },  // Optional array of image names (if needed),
+    imageNumber: { type: String, required: true },
   },
   { timestamps: true }
 );
