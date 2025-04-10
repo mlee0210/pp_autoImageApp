@@ -48,7 +48,7 @@ export const getGPTPrompt = async (prompt: string) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions', // Updated endpoint
       {
-        model: 'gpt-3.5-turbo', // Use GPT-4 model
+        model: "gpt-4o", // Use GPT-4 model
         messages: [
           {
             role: "system",
@@ -66,8 +66,7 @@ export const getGPTPrompt = async (prompt: string) => {
               "Story: Expand on the content that may be missing.\n" +
               "Point: List representative style elements such as hyperrealism, surreal, cyberpunk, etc.\n" +
               "Style Reference: (Optional) Provide an image link for style guidance.\n\n" +
-              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections."+
-              "- If there are Midjourney parameters, leave as is, and add it to the end of the prompt. Do not try to describe it in words. Leave it as it is.\n\n"
+              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections."
           },
           { 
             role: 'user', 
@@ -100,7 +99,7 @@ export const getMidjourneyPrompt = async (prompt: string) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions', // Updated endpoint
       {
-        model: 'gpt-3.5-turbo', // Use GPT-4 model
+        model: "gpt-4o", // Use GPT-4 model
         messages: [
           {
             role: "system",
@@ -113,7 +112,7 @@ export const getMidjourneyPrompt = async (prompt: string) => {
               "- If there are Midjourney parameters, leave as is, and add it to the end of the prompt. Do not try to describe it in words. Leave it as it is.\n\n" +
               "Format:\n" +
               "- Write a natural, flowing Midjourney-style prompt.\n" +
-              "- Do not include section headers from the input."
+              "- Do not include section headers from the input. Do not add any Midjourney parameters"
           },
           { 
             role: 'user', 
@@ -166,6 +165,7 @@ export const startProcess = async (req?: Request, res?: Response) => {
 
 
   console.log("Inside startProcess")
+  broadcastMessage("프로세스 시작");
 
   if (isProcessing) {
     broadcastMessage("Process is already running");
@@ -174,63 +174,68 @@ export const startProcess = async (req?: Request, res?: Response) => {
 
   isProcessing = true; // Set processing flag to true
 
-  while (true) {
-    try {
-      console.log("Running process loop...");
-      
-      if (userPrompt && totalNumber && gptNumber) {
-        const gptPrompts = [];
-        for (let i = 1; i <= gptNumber; i++) {
-          const gptPrompt = await getGPTPrompt(userPrompt);
-          if(gptPrompt) {
-            gptPrompts.push(gptPrompt);
-          }
+  try {
+    console.log("Running process loop...");
+    
+    if (userPrompt && totalNumber && gptNumber) {
+      const baseIteration = Math.floor(totalNumber / gptNumber);
+      const remainder = totalNumber % gptNumber;
+
+      const gptPrompts = [];
+      const midjourneyPrompts = [];
+
+      for (let i = 1; i <= baseIteration; i++) {
+        const gptPrompt = await getGPTPrompt(userPrompt);
+        let midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
+        if (midjourneyPrompt) {
+          midjourneyPrompt += "--ar 16:9 --v 6.1 --s 1000";
         }
-        const baseIteration = Math.floor(totalNumber / gptNumber);
-        const remainder = totalNumber % gptNumber;
-        // 날짜 포맷: YYMMDD
-        const todayPrefix = dayjs().format("YYMMDD");
-        
-        // 1️⃣ 오늘 날짜의 마지막 gptIndex 조회
-        const latestNumber = await getLatestNumberForToday(todayPrefix); 
-        let gptIndexOffset = latestNumber + 1; // 새로 시작할 gptIndex
-
-        for (let i = 1; i <= gptPrompts.length; i++) {
-          const gptPrompt = gptPrompts[i - 1];
-          const currentIndex = gptIndexOffset + i - 1;
-
-          // 마지막 gptPrompt에 나머지를 추가로 할당
-          const currentIterations = i === gptPrompts.length - 1 ? baseIteration + remainder : baseIteration;
-
-          for (let j = 1; j <= currentIterations; j++) {
-            const imageNumber = `${todayPrefix}_${currentIndex}_${j}`;
-            let midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
-            if (midjourneyPrompt) {
-              midjourneyPrompt += "--ar 16:9 --v 6.1 --s 1000 --relax";
-            }
-            const promptId = await savePromptToDB(userPrompt, gptPrompt, midjourneyPrompt, imageNumber);
-            await sendToMidjourney(midjourneyPrompt, promptId as string);
-            await new Promise(resolve => setTimeout(resolve, 20000)); // 20초 대기
-
-            if (!isProcessing) {
-              console.log("Stop requested. Breaking after current iteration.");
-              break;
-            }
-          }
-          if(!isProcessing) break;
+        if(gptPrompt && midjourneyPrompt) {
+          gptPrompts.push(gptPrompt);
+          midjourneyPrompts.push(midjourneyPrompt);
         }
-        broadcastMessage("Iteration Complete");
-        console.log("Process iteration completed.");
       }
-    } catch (error) {
-        broadcastMessage("Error occurred during process!"); // Ensure this function exists
+      broadcastMessage("ChatGPT를 사용한 Midjourney 프롬프트 생성 완료");
+
+      // 날짜 포맷: YYMMDD
+      const todayPrefix = dayjs().format("YYMMDD");
+      
+      // 1️⃣ 오늘 날짜의 마지막 gptIndex 조회
+      const latestNumber = await getLatestNumberForToday(todayPrefix); 
+      let gptIndexOffset = latestNumber; // 새로 시작할 gptIndex
+
+      for (let i = 1; i <= gptPrompts.length; i++) {
+        const gptPrompt = gptPrompts[i - 1];
+        const midjourneyPrompt = midjourneyPrompts[i - 1];
+        const currentIndex = gptIndexOffset + i;
+
+        // 마지막 gptPrompt에 나머지를 추가로 할당
+        const currentIterations = i === gptPrompts.length ? gptNumber + remainder : gptNumber;
+
+        for (let j = 1; j <= currentIterations; j++) {
+          const imageNumber = `${todayPrefix}_${currentIndex}_${j}`;
+          const promptId = await savePromptToDB(userPrompt, gptPrompt, midjourneyPrompt, imageNumber);
+          broadcastMessage(`현재: ${i}번째 ChatGPT 프롬프트의 ${j}번째 이미지 생성 중`);
+          await sendToMidjourney(midjourneyPrompt, promptId as string);
+          await new Promise(resolve => setTimeout(resolve, 20000)); // 20초 대기
+
+          if (!isProcessing) {
+            console.log("Stop requested. Breaking after current iteration.");
+            broadcastMessage("프로세스 중단 요청. 현재 iteration 완료 후 종료 예정");
+            break;
+          }
+        }
+        if(!isProcessing) break;
+      }
+      broadcastMessage("프로세스 완료");
+      console.log("Process iteration completed.");
+      isProcessing = false;
     }
-    if (!isProcessing) {
-      console.log("Process fully stopped.");
-      break;
-    }
+  } catch (error) {
+      broadcastMessage("Error occurred during process!"); // Ensure this function exists
   }
-  isProcessing = false;
+  
+  
 };
 
 async function getLatestNumberForToday(todayPrefix: string): Promise<number> {
@@ -248,6 +253,7 @@ async function getLatestNumberForToday(todayPrefix: string): Promise<number> {
 // Stop Process Function
 export const stopProcess = async (req: Request, res: Response) => {
   console.log("Stop process requested"); // Add this to log when the endpoint is hit
+  broadcastMessage("프로세스 중단 요청. 현재 iteration 완료 후 종료 예정");
 
   if (!isProcessing) {
     res.status(400).json({ message: "No process is running" });
@@ -286,7 +292,7 @@ export const fetchData = async (req: Request, res: Response) => {
 
 export const rerunProcess = async (req: Request, res: Response) => {
   console.log('inside rerunProcess');
-  const { originalPrompt, gptPrompt, midjourneyPrompt } = req.body;
+  const { originalPrompt, gptPrompt, midjourneyPrompt, imageNumber } = req.body;
 
   // 날짜 포맷: YYMMDD
   const todayPrefix = dayjs().format("YYMMDD");
@@ -294,14 +300,14 @@ export const rerunProcess = async (req: Request, res: Response) => {
   // 1️⃣ 오늘 날짜의 마지막 gptIndex 조회
   const latestNumber = await getLatestNumberForToday(todayPrefix); 
   let gptIndexOffset = latestNumber + 1; // 새로 시작할 gptIndex
-  const imageNumber = `${todayPrefix}_${gptIndexOffset}_1`;
+  const imgNum = `${todayPrefix}_${gptIndexOffset}_1`;
   
   try {
     if (!originalPrompt || !gptPrompt || !midjourneyPrompt) {
       // return res.status(400).json({ success: false, error: 'Missing required fields' });
       console.log('error');
     }
-    const promptId = await savePromptToDB(originalPrompt, gptPrompt, midjourneyPrompt, imageNumber);
+    const promptId = await savePromptToDB(originalPrompt, gptPrompt, midjourneyPrompt, imgNum);
     await sendToMidjourney(midjourneyPrompt, promptId as string);
   } catch (error) {
     broadcastMessage("Error occurred during re-run process!"); // Ensure this function exists

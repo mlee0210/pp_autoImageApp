@@ -39,8 +39,13 @@ const App: React.FC = () => {
 
     socketInstance.onmessage = (event) => {
       setNotificationMessage(event.data);
-      if (event.data === "Iteration Complete") {
+      if (event.data === "프로세스 완료") {
         setIsIterationComplete(true);
+        setIsProcessing(false);
+        setLoading(false);
+      } else if (event.data === "Error occurred during process!") {
+        setIsIterationComplete(true);
+        setIsProcessing(false); // 에러 시에도 버튼 다시 살려야 함
       }
     };
 
@@ -49,6 +54,18 @@ const App: React.FC = () => {
 
     return () => socketInstance.close();
   }, []);
+
+  useEffect(() => {
+    console.log("Start button check:", {
+      loading,
+      isProcessing,
+      userPrompt,
+      chatGPTNumber,
+      totalNumber,
+      isStartDisabled,
+      isIterationComplete,
+    });
+  }, [loading, isProcessing, userPrompt, chatGPTNumber, totalNumber]);
 
   const handleUpdateClick = () => {
     setPrompts([]);
@@ -119,27 +136,26 @@ const App: React.FC = () => {
     totalNumber.trim() === "";
 
   return (
-    <div className="app">
-      <div className="form-container">
-        <div className="form-group-row">
-          {/* Original Prompt */}
-          <div className="form-group">
-            <label className="form-label">Original Prompt</label>
-            <textarea
-              rows={10}
-              placeholder="Type your custom prompt..."
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              disabled={loading || isProcessing}
-              className="textarea"
-              // style={{ width: "500px", height: "200px" }}
-            />
-          </div>
-
-          {/* Side Inputs */}
-          <div className="form-group-side">
+    <div className="zoom-wrapper">
+      <div className="app">
+        <div className="form-container">
+          <div className="form-group-row">
+            {/* Original Prompt */}
             <div className="form-group">
-              <label className="form-label">Total Number</label>
+              <label className="form-label">Original Prompt</label>
+              <textarea
+                rows={10}
+                placeholder="Type your custom prompt..."
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                disabled={loading || isProcessing}
+                className="textarea"
+              />
+            </div>
+
+            {/* Side Inputs */}
+            <div className="form-group">
+              <label className="form-label">총 이미지 세트 수</label>
               <input
                 type="number"
                 min={1}
@@ -152,7 +168,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">ChatGPT Number</label>
+              <label className="form-label">ChatGPT 프롬프트 당 이미지 세트 수</label>
               <input
                 type="number"
                 min={1}
@@ -165,45 +181,46 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-      <div className="button-row">
-        <Button label="START" onClick={startCycle} disabled={isStartDisabled} />
-        <Button label="STOP" onClick={stopCycle} disabled={!isProcessing} />
-        <Button
-          label="UPDATE"
-          onClick={handleUpdateClick}
-          disabled={loading || isProcessing || !isIterationComplete}
-        />
-      </div>
+        <div className="button-row">
+          <Button label="START" onClick={startCycle} disabled={isStartDisabled} />
+          <Button label="STOP" onClick={stopCycle} disabled={!isProcessing} />
+          <Button
+            label="UPDATE"
+            onClick={handleUpdateClick}
+            disabled={loading || isProcessing || !isIterationComplete}
+          />
+        </div>
 
-      {notificationMessage && <p className="notification">{notificationMessage}</p>}
+        {notificationMessage && <p className="notification">{notificationMessage}</p>}
 
+        <hr className="section-divider" />
 
-      <div className="gallery-wrapper">
-        <ImageGallery prompts={prompts} />
-      </div>
+        <div className="gallery-wrapper">
+          <ImageGallery prompts={prompts} />
+        </div>
 
-      <div className="pagination">
-        <Button
-          label="Previous"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1 || loading}
-        />
-        {getPageGroup(currentPage, totalPages).map((page) => (
-          <button
-            key={page}
-            onClick={() => handlePageChange(page)}
-            className={currentPage === page ? "active" : ""}
-            disabled={loading}
-          >
-            {page}
-          </button>
-        ))}
-        <Button
-          label="Next"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages || loading}
-        />
+        <div className="pagination">
+          <Button
+            label="Previous"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1 || loading}
+          />
+          {getPageGroup(currentPage, totalPages).map((page) => (
+            <button
+              key={page}
+              onClick={() => handlePageChange(page)}
+              className={currentPage === page ? "active" : ""}
+              disabled={loading}
+            >
+              {page}
+            </button>
+          ))}
+          <Button
+            label="Next"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || loading}
+          />
+        </div>
       </div>
     </div>
   );
