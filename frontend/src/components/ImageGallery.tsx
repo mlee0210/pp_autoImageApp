@@ -15,6 +15,7 @@ type ImageGalleryProps = {
 };
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => {
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
@@ -87,12 +88,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => {
     imageNumber: string;
   }) => {
     try {
+      setLoading(true);
       const response = await axios.post(`${API_BASE_URL}/api/prompts/run-again`, {
         originalPrompt: prompt.originalPrompt,
         gptPrompt: prompt.gptPrompt,
         midjourneyPrompt: prompt.midjourneyPrompt,
         imageNumber: prompt.imageNumber,
       });
+      if(response) {
+        console.log("Finished re-run");
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Run It Again Error:', error);
       alert('Error running it again.');
@@ -112,6 +118,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => {
       </div>
     );
   };
+
+  const isRunningAgain =
+    loading;
 
   return (
     <div className="gallery-container">
@@ -144,6 +153,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ prompts = [] }) => {
                     imageNumber: prompt.imageNumber,
                   })
                 }
+                disabled={isRunningAgain}
               >
                 Run It Again
               </button>

@@ -66,7 +66,7 @@ export const getGPTPrompt = async (prompt: string) => {
               "Story: Expand on the content that may be missing.\n" +
               "Point: List representative style elements such as hyperrealism, surreal, cyberpunk, etc.\n" +
               "Style Reference: (Optional) Provide an image link for style guidance.\n\n" +
-              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections."
+              "Your response should be formatted as structured bullet points. Do not include any extra text or explanations outside of the required sections. Do not add any Midjourney parameters, unless specified"
           },
           { 
             role: 'user', 
@@ -112,7 +112,7 @@ export const getMidjourneyPrompt = async (prompt: string) => {
               "- If there are Midjourney parameters, leave as is, and add it to the end of the prompt. Do not try to describe it in words. Leave it as it is.\n\n" +
               "Format:\n" +
               "- Write a natural, flowing Midjourney-style prompt.\n" +
-              "- Do not include section headers from the input. Do not add any Midjourney parameters"
+              "- Do not include section headers from the input. Do not add any Midjourney parameters, unless specified"
           },
           { 
             role: 'user', 
@@ -184,6 +184,8 @@ export const startProcess = async (req?: Request, res?: Response) => {
       const gptPrompts = [];
       const midjourneyPrompts = [];
 
+      let imgCount = 0;
+
       for (let i = 1; i <= baseIteration; i++) {
         const gptPrompt = await getGPTPrompt(userPrompt);
         let midjourneyPrompt = await getMidjourneyPrompt(gptPrompt);
@@ -213,12 +215,13 @@ export const startProcess = async (req?: Request, res?: Response) => {
         const currentIterations = i === gptPrompts.length ? gptNumber + remainder : gptNumber;
 
         for (let j = 1; j <= currentIterations; j++) {
+
           const imageNumber = `${todayPrefix}_${currentIndex}_${j}`;
           const promptId = await savePromptToDB(userPrompt, gptPrompt, midjourneyPrompt, imageNumber);
-          broadcastMessage(`현재: ${i}번째 ChatGPT 프롬프트의 ${j}번째 이미지 생성 중`);
+          broadcastMessage(`현재: ${i}번째 ChatGPT 프롬프트의 ${j}번째 이미지 생성 중 || 총 이미지 생성 수: ${imgCount}`);
           await sendToMidjourney(midjourneyPrompt, promptId as string);
           await new Promise(resolve => setTimeout(resolve, 20000)); // 20초 대기
-
+          imgCount++;
           if (!isProcessing) {
             console.log("Stop requested. Breaking after current iteration.");
             broadcastMessage("프로세스 중단 요청. 현재 iteration 완료 후 종료 예정");
@@ -293,6 +296,7 @@ export const fetchData = async (req: Request, res: Response) => {
 export const rerunProcess = async (req: Request, res: Response) => {
   console.log('inside rerunProcess');
   const { originalPrompt, gptPrompt, midjourneyPrompt, imageNumber } = req.body;
+  broadcastMessage(`${imageNumber}의 정보를 토대로 이미지 생성 요청`); // Ensure this function exists
 
   // 날짜 포맷: YYMMDD
   const todayPrefix = dayjs().format("YYMMDD");
@@ -300,7 +304,16 @@ export const rerunProcess = async (req: Request, res: Response) => {
   // 1️⃣ 오늘 날짜의 마지막 gptIndex 조회
   const latestNumber = await getLatestNumberForToday(todayPrefix); 
   let gptIndexOffset = latestNumber + 1; // 새로 시작할 gptIndex
-  const imgNum = `${todayPrefix}_${gptIndexOffset}_1`;
+  // const imgNum = `${todayPrefix}_${gptIndexOffset}_1`;
+
+  // 문자열을 "_" 기준으로 나눕니다
+  const parts = imageNumber.split("_");
+
+  // 마지막 숫자만 1 증가
+  const lastNumber = parseInt(parts[2]) + 1;
+
+  // 새로 조합
+  const imgNum = `${parts[0]}_${parts[1]}_${lastNumber}`;
   
   try {
     if (!originalPrompt || !gptPrompt || !midjourneyPrompt) {
@@ -309,10 +322,13 @@ export const rerunProcess = async (req: Request, res: Response) => {
     }
     const promptId = await savePromptToDB(originalPrompt, gptPrompt, midjourneyPrompt, imgNum);
     await sendToMidjourney(midjourneyPrompt, promptId as string);
+    res.status(200).json({ success: true });
+
   } catch (error) {
     broadcastMessage("Error occurred during re-run process!"); // Ensure this function exists
-}
-
+  } finally {
+    broadcastMessage("프로세스 완료");
+  }
 };
 
 // Define the routes for the backend

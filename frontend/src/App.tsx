@@ -55,17 +55,17 @@ const App: React.FC = () => {
     return () => socketInstance.close();
   }, []);
 
-  useEffect(() => {
-    console.log("Start button check:", {
-      loading,
-      isProcessing,
-      userPrompt,
-      chatGPTNumber,
-      totalNumber,
-      isStartDisabled,
-      isIterationComplete,
-    });
-  }, [loading, isProcessing, userPrompt, chatGPTNumber, totalNumber]);
+  // useEffect(() => {
+  //   console.log("Start button check:", {
+  //     loading,
+  //     isProcessing,
+  //     userPrompt,
+  //     chatGPTNumber,
+  //     totalNumber,
+  //     isStartDisabled,
+  //     isIterationComplete,
+  //   });
+  // }, [loading, isProcessing, userPrompt, chatGPTNumber, totalNumber]);
 
   const handleUpdateClick = () => {
     setPrompts([]);
@@ -120,17 +120,22 @@ const App: React.FC = () => {
     try {
       await axios.post(`${API_BASE_URL}/api/prompts/stop`);
       console.log("Process stopped");
+
+      setTimeout(() => {
+        setIsProcessing(false); // allow START again only after backend done
+        // setLoading(false);
+      }, 30000); // 30 seconds delay
+
     } catch (error) {
-      console.error("Error stopping cycle", error);
-    } finally {
-      setLoading(false);
-      setIsProcessing(false);
+        console.error("Error stopping cycle", error);
+        setLoading(false);
+        setIsProcessing(false); // fallback
     }
   };
 
   const isStartDisabled =
     loading ||
-    isProcessing ||
+    isProcessing &&
     userPrompt.trim() === "" ||
     chatGPTNumber.trim() === "" ||
     totalNumber.trim() === "";
